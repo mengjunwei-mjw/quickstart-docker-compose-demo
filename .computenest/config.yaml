@@ -2,6 +2,11 @@ Service:
   RegionId: cn-hangzhou
   DeployType: ros
   DeployMetadata:
+    SupplierDeployMetadata:
+      FileArtifactRelation:
+        '{{ computenest::file::mengjunwei-mjw_quickstart-docker-compose-demo-docker-compose }}':
+          ArtifactId: ${Artifact.Artifact_1.ArtifactId}
+          ArtifactVersion: ${Artifact.Artifact_1.ArtifactVersion}
     TemplateConfigs:
       - Name: 单机版
         Url: 'ros_templates/template.yaml'
@@ -14,3 +19,10 @@ Service:
     Locale: zh-CN
     ShortDescription: docker compose deploy
     Image: 'resources/icons/service_logo.png'
+Artifact:
+  Artifact_1:
+    ArtifactType: File
+    ArtifactName: mengjunwei-mjw_quickstart-docker-compose-demo-docker-compose
+    ArtifactProperty:
+      RegionId: cn-hangzhou
+      Url: 'resources/artifact_resources/docker_compose.tar'

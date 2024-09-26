@@ -106,6 +106,11 @@ Parameters:
     AssociationPropertyMetadata:
       VpcId: VpcId
       ZoneId: ZoneId
+  AdminPassword:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Label: 管理员密码
+    NoEcho: True
 Resources:
   SecurityGroup:
     Type: ALIYUN::ECS::SecurityGroup
@@ -168,7 +173,6 @@ Resources:
             tee /etc/docker/daemon.json <<-'EOF'
             {
                 "registry-mirrors": [
-                    "https://0vmzj3q6.mirror.aliyuncs.com",
                     "https://docker.m.daocloud.io",
                     "https://mirror.baidubce.com",
                     "https://dockerproxy.com",
@@ -193,58 +197,8 @@ Resources:
             docker login $host --username=$username --password=$password
 
             mkdir -p /home/admin/application
-            cat >/home/admin/application/docker-compose.yaml<<EOF
-            version: "3"
-            
-            services:
-              halo:
-                image: registry.fit2cloud.com/halo/halo:2.16
-                restart: on-failure:3
-                depends_on:
-                  halodb:
-                    condition: service_healthy
-                networks:
-                  halo_network:
-                volumes:
-                  - ./halo2:/root/.halo2
-                ports:
-                  - "8090:8090"
-                healthcheck:
-                  test: ["CMD", "curl", "-f", "http://localhost:8090/actuator/health/readiness"]
-                  interval: 30s
-                  timeout: 5s
-                  retries: 5
-                  start_period: 30s          
-                command:
-                  - --spring.r2dbc.url=r2dbc:pool:postgresql://halodb/halo
-                  - --spring.r2dbc.username=halo
-                  # PostgreSQL 的密码，请保证与下方 POSTGRES_PASSWORD 的变量值一致。
-                  - --spring.r2dbc.password=openpostgresql
-                  - --spring.sql.init.platform=postgresql
-                  # 外部访问地址，请根据实际需要修改
-                  - --halo.external-url=http://localhost:8090/
-              halodb:
-                image: postgres:15.4
-                restart: on-failure:3
-                networks:
-                  halo_network:
-                volumes:
-                  - ./db:/var/lib/postgresql/data
-                healthcheck:
-                  test: [ "CMD", "pg_isready" ]
-                  interval: 10s
-                  timeout: 5s
-                  retries: 5
-                environment:
-                  - POSTGRES_PASSWORD=openpostgresql
-                  - POSTGRES_USER=halo
-                  - POSTGRES_DB=halo
-                  - PGUSER=halo
-            
-            networks:
-              halo_network:
-            
-            EOF
+            wget '{{ computenest::file::mengjunwei-mjw_quickstart-docker-compose-demo-docker-compose }}' -O /home/admin/application/docker_compose.tar
+            tar -xvf /home/admin/application/docker_compose.tar -C /home/admin/application
 
             cat > /etc/systemd/system/docker-compose-app.service <<EOF
             [Unit]
@@ -255,8 +209,8 @@ Resources:
             [Service]
             Type=oneshot
             RemainAfterExit=yes
-            WorkingDirectory=/home/admin/application
-            ExecStart=/usr/bin/docker compose up -d
+            WorkingDirectory=/home/admin/application/docker_compose
+            ExecStart=/usr/bin/docker compose -f docker-compose.yaml up -d
             ExecStop=/usr/bin/docker compose down
             TimeoutStartSec=0
 
@@ -266,6 +220,10 @@ Resources:
 
             # 在Docker Compose启动前执行此命令片段，命令中可以引用参数
             echo "before docker compose starts"
+            echo ${AdminPassword}
+            # 使用sed命令将docker-compose.yaml中的password替换为${AdminPassword}
+            # AdminPassword在用户实际部署时填写，/home/admin/application/docker-compose.yaml为固定路径，无需修改
+            sed -i 's/password/\${AdminPassword}/g' /home/admin/application/docker-compose.yaml
             
             systemctl start docker-compose-app
             sleep 10
@@ -310,4 +268,9 @@ Metadata:
           - VSwitchId
         Label:
           default: 可用区配置
+      - Parameters:
+          - AdminPassword
+        Label:
+          en: Software Configuration
+          zh-cn: 软件配置
       
